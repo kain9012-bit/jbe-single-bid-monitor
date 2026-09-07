@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 import type { Contract } from '../types';
 import { rollup } from '../lib/rules';
 import { num, wonShort } from '../lib/util';
+import { downloadCsv, safeName, toCsv } from '../lib/csv';
 import { EmptyState, SectionTitle } from '../components/Ui';
 import { ContractTable } from '../components/ContractTable';
 
 export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, year }) => {
-  const [by, setBy] = useState<'partner' | 'inst'>('partner');
+  // 기본은 기관으로 찾기 — 대부분 '우리 학교/우리 청은 어떤가'로 시작한다
+  const [by, setBy] = useState<'inst' | 'partner'>('inst');
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -22,12 +24,24 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
 
   const detail = picked ? list.find((r) => r.key === picked) : null;
 
+  /** 지금 화면에 뜬 집계 목록을 그대로 내린다(검색어를 걸었으면 걸린 것만). */
+  const downloadList = () => {
+    const what = by === 'inst' ? '기관' : '업체';
+    downloadCsv(
+      safeName(`${year}년_1인수의계약_${what}별집계${q.trim() ? `_${q.trim()}` : ''}`),
+      toCsv(
+        [what, '건수', '합계금액(원)', by === 'inst' ? '거래업체수' : '거래기관수'],
+        filtered.map((r) => [r.key, r.count, r.total, r.partners]),
+      ),
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-md border border-slate-300 bg-white overflow-hidden text-sm font-bold">
-            {(['partner', 'inst'] as const).map((k) => (
+            {(['inst', 'partner'] as const).map((k) => (
               <button
                 key={k}
                 type="button"
@@ -60,11 +74,25 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
             />
           </label>
         </div>
-        <p className="text-xs text-slate-500">
-          {q.trim()
-            ? `${num(filtered.length)}곳 (최대 200곳 표시)`
-            : `${year}년 계약 금액 상위 50곳을 보여줍니다. 이름을 입력해 찾으세요.`}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate-500">
+            {q.trim()
+              ? `${num(filtered.length)}곳 (최대 200곳 표시)`
+              : `${year}년 계약 금액 상위 50곳을 보여줍니다. 이름을 입력해 찾으세요.`}
+          </p>
+          {!picked && filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={downloadList}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white
+                         text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4" aria-hidden="true" />
+              이 목록 엑셀로 내려받기
+              <span className="text-xs font-medium text-slate-400 tabular-nums">{num(filtered.length)}곳</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {detail ? (
@@ -83,6 +111,7 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
             rows={[...detail.items].sort((a, b) => b.date.localeCompare(a.date))}
             hideInst={by === 'inst'}
             hidePartner={by === 'partner'}
+            downloadName={`${year}년_1인수의계약_${detail.key}`}
           />
         </div>
       ) : filtered.length === 0 ? (

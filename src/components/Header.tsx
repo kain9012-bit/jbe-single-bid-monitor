@@ -6,7 +6,6 @@ import { korDate } from '../lib/util';
 const TABS: { id: Tab; label: string; gated?: boolean }[] = [
   { id: 'home', label: '현황' },
   { id: 'repeat', label: '반복 수의계약', gated: true },
-  { id: 'split', label: '분할 의심', gated: true },
   { id: 'lookup', label: '기관·업체 조회' },
   { id: 'recent', label: '최근 계약' },
 ];

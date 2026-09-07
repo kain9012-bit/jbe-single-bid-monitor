@@ -14,17 +14,30 @@ export interface YearFile {
   rows: [string, number, string, string, number, number][];
 }
 
+/**
+ * 기관분류구분 — 사이트 상세 화면이 주는 값 그대로.
+ * '시도교육청' 은 화면에 '본청' 으로 적는다(util.ts 의 kindLabel).
+ */
+export type InstKind = '시도교육청' | '교육지원청' | '직속기관' | '학교' | '미상';
+
+/** 계약기관 이름 → 기관분류구분 (scripts/collect.py 가 상세 화면에서 채운다) */
+export interface InstKindsFile {
+  kinds: Record<string, string>;
+}
+
 /** 화면에서 다루는 계약 한 건 */
 export interface Contract {
   seq: string;
   year: number;
   inst: string;
+  /** 계약기관의 기관분류구분 */
+  kind: InstKind;
   name: string;
   /** YYYY-MM-DD */
   date: string;
   amount: number;
   partner: string;
-  /** 법인 형태(주식회사·(주)·유한회사 등)를 떼어낸 상대자 이름. 묶을 때만 쓴다. */
+  /** 법인 형태(주식회사·(주)·재단법인 등)를 떼어낸 상대자 이름. 묶을 때만 쓴다. */
   pkey: string;
 }
 
@@ -33,16 +46,12 @@ export interface RepeatGroup {
   inst: string;
   partner: string;
   count: number;
+  /** 묶인 계약금액의 합. 판정 기준이 아니라 참고용이다 — 기준은 건당 금액이다. */
   total: number;
-  items: Contract[];
-}
-
-/** 짧은 기간에 몰린 같은 기관·같은 업체 계약 묶음 (분할 의심) */
-export interface SplitGroup extends RepeatGroup {
-  /** 묶인 계약의 첫 날짜와 마지막 날짜 */
   from: string;
   to: string;
   spanDays: number;
+  items: Contract[];
 }
 
-export type Tab = 'home' | 'repeat' | 'split' | 'lookup' | 'recent';
+export type Tab = 'home' | 'repeat' | 'lookup' | 'recent';

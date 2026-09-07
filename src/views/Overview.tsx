@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { Building2, Coins, FileText, Handshake, TriangleAlert } from 'lucide-react';
 import type { Contract } from '../types';
-import { BANDS, bandOf, instKind, monthOf, num, won, wonShort } from '../lib/util';
+import { BANDS, KIND_ORDER, bandOf, kindLabel, monthOf, num, won, wonShort } from '../lib/util';
 import { SectionTitle, Stat } from '../components/Ui';
 
 const BLUE = '#256ef4';
@@ -107,16 +107,16 @@ export const Overview: React.FC<Props> = ({ rows, year, byYear }) => {
     return c;
   }, [rows]);
 
+  // 기관분류구분은 사이트 상세 화면이 주는 값이다(이름으로 추측하지 않는다)
   const kinds = useMemo(() => {
     const m = new Map<string, { count: number; amount: number }>();
     for (const r of rows) {
-      const k = instKind(r.inst);
-      const v = m.get(k) ?? { count: 0, amount: 0 };
+      const v = m.get(r.kind) ?? { count: 0, amount: 0 };
       v.count += 1;
       v.amount += r.amount;
-      m.set(k, v);
+      m.set(r.kind, v);
     }
-    return [...m.entries()].sort((a, b) => b[1].amount - a[1].amount);
+    return KIND_ORDER.filter((k) => m.has(k)).map((k) => [k, m.get(k)!] as const);
   }, [rows]);
 
   /** 연도 비교 — 월 누계. 해가 진행 중인 연도는 지난 달까지만 그린다. */
@@ -256,12 +256,12 @@ export const Overview: React.FC<Props> = ({ rows, year, byYear }) => {
         </div>
 
         <div className="space-y-3">
-          <SectionTitle desc="기관 이름으로 갈랐습니다">기관 종류별</SectionTitle>
+          <SectionTitle desc="사이트의 기관분류구분 그대로">기관분류별</SectionTitle>
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 text-xs">
-                  <th scope="col" className="text-left font-bold px-4 py-2">종류</th>
+                  <th scope="col" className="text-left font-bold px-4 py-2">분류</th>
                   <th scope="col" className="text-right font-bold px-4 py-2">건수</th>
                   <th scope="col" className="text-right font-bold px-4 py-2">금액</th>
                   <th scope="col" className="text-right font-bold px-4 py-2">비중</th>
@@ -270,7 +270,7 @@ export const Overview: React.FC<Props> = ({ rows, year, byYear }) => {
               <tbody>
                 {kinds.map(([k, v]) => (
                   <tr key={k} className="border-t border-slate-100">
-                    <td className="px-4 py-2.5 font-bold text-slate-900">{k}</td>
+                    <td className="px-4 py-2.5 font-bold text-slate-900">{kindLabel(k)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{num(v.count)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{wonShort(v.amount)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">

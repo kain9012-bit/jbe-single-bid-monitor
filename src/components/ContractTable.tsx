@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import type { Contract } from '../types';
-import { korDate, num, viewUrl, won } from '../lib/util';
+import { korDate, kindLabel, num, viewUrl, won } from '../lib/util';
+import { downloadCsv, safeName, toCsv } from '../lib/csv';
 import { GhostBtn } from './Ui';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   hideInst?: boolean;
   /** 상대자 열을 숨긴다 */
   hidePartner?: boolean;
+  /** 내려받기 파일 이름. 주면 목록 위에 내려받기 단추가 생긴다. */
+  downloadName?: string;
 }
 
 export const ContractTable: React.FC<Props> = ({
@@ -21,12 +24,45 @@ export const ContractTable: React.FC<Props> = ({
   step = 50,
   hideInst,
   hidePartner,
+  downloadName,
 }) => {
   const [n, setN] = useState(initial);
   const shown = rows.slice(0, n);
 
+  // 화면에 몇 줄만 펼쳐져 있어도 내려받기는 **목록 전체**를 담는다
+  const download = () =>
+    downloadCsv(
+      safeName(downloadName ?? '1인수의계약'),
+      toCsv(
+        ['계약일자', '기관분류', '계약기관', '계약명', '계약상대자', '계약금액', '원문'],
+        rows.map((r) => [
+          r.date,
+          kindLabel(r.kind),
+          r.inst,
+          r.name,
+          r.partner,
+          r.amount,
+          viewUrl(r.seq, r.year),
+        ]),
+      ),
+    );
+
   return (
     <div className="space-y-3">
+      {downloadName && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={download}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300
+                       text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+          >
+            <Download className="w-4 h-4" aria-hidden="true" />
+            엑셀로 내려받기
+            <span className="text-xs font-medium text-slate-400 tabular-nums">{num(rows.length)}건</span>
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <caption className="sr-only">계약 목록</caption>

@@ -1,3 +1,5 @@
+import type { InstKind } from '../types';
+
 /** 금액을 한국식 단위로. 표에서는 원 단위 그대로가 필요하므로 두 벌을 둔다. */
 export const won = (n: number) => n.toLocaleString('ko-KR') + '원';
 
@@ -46,15 +48,13 @@ export const viewUrl = (seq: string, year: number) =>
     menuCd: 'DOM_000001003001009000',
   }).toString();
 
-/** 기관 이름에서 종류를 추린다. 통계에서 학교와 행정기관을 갈라 보려는 용도. */
-export type InstKind = '학교' | '유치원' | '교육지원청' | '본청' | '직속기관';
-export const instKind = (name: string): InstKind => {
-  if (/유치원$/.test(name)) return '유치원';
-  if (/(초등학교|중학교|고등학교|중고등학교|학교)$/.test(name)) return '학교';
-  if (/교육지원청$/.test(name)) return '교육지원청';
-  if (/^전북특별자치도교육청$/.test(name)) return '본청';
-  return '직속기관';
-};
+/**
+ * 기관분류구분의 화면 이름.
+ * 사이트는 '시도교육청' 이라고 적지만 안에서는 '본청' 이라 부르므로 그렇게 보여준다.
+ * 저장된 자료는 사이트 표기 그대로 두고 여기서만 바꾼다 — 원자료를 손대지 않기 위해서다.
+ */
+export const KIND_ORDER: InstKind[] = ['시도교육청', '교육지원청', '직속기관', '학교', '미상'];
+export const kindLabel = (k: InstKind) => (k === '시도교육청' ? '본청' : k);
 
 /**
  * 입력 오류로 보이는 금액의 문턱.

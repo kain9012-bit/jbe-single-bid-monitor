@@ -16,6 +16,7 @@ pageUnit 파라미터가 먹혀서 한 번에 1000건씩 받을 수 있다. 그�
     python3 collect.py                # YEARS 전체
     python3 collect.py 2026           # 특정 연도
 """
+import concurrent.futures as cf
 import json
 import os
 import random
@@ -176,6 +177,100 @@ def collect_year(year):
     return out
 
 
+KIND_RE = re.compile(r"기관분류구분</th>\s*<td[^>]*>\s*([^<]*?)\s*</td>", re.S)
+KINDS_PATH_NAME = "inst_kinds.json"
+# 사이트가 쓰는 네 가지. 목록 화면에는 안 나오고 상세 화면에만 있다.
+KNOWN_KINDS = ["시도교육청", "교육지원청", "직속기관", "학교"]
+# 900곳쯤을 한 번에 물어야 해서 몇 갈래로 나눠 받는다. 공공 사이트라 동시 요청은 낮게 잡는다.
+KIND_WORKERS = 5
+
+
+def view_url(seq, year):
+    q = {
+        "cntr_mthd_div_nm": "1인수의",
+        "cntr_mthd_div": "1",
+        "cm_seq_no": seq,
+        "fscl_y": str(year),
+        "menuCd": MENU_CD,
+    }
+    return VIEW + "?" + urllib.parse.urlencode(q, encoding="utf-8")
+
+
+def resolve_kinds(limit=None, workers=None):
+    """계약기관의 기관분류구분(시도교육청·교육지원청·직속기관·학교)을 채운다.
+
+    목록 화면에는 이 값이 없다. `inst_clss_div` 파라미터는 서버가 무시하고 `schoolIn` 만 먹으므로
+    검색으로는 못 가른다. 상세 화면에는 있는데 계약 건마다 요청하면 33만 번이라 말이 안 된다.
+
+    그런데 **계약기관은 4년 통틀어 1,200곳 남짓**이다. 기관마다 대표 계약 하나만 열어 보면
+    그 기관의 분류를 알 수 있고, 기관 이름은 안 바뀌므로 한 번 알아낸 값은 계속 쓴다.
+    그래서 아직 모르는 기관만 골라 묻는다 — 첫 실행에 20분쯤, 그다음부터는 새로 생긴 기관 몇 곳뿐이다.
+
+    이름으로 추측하지 않는 이유: '군산영어체험학습센터'는 직속기관이고 '군산가람유치원'은 학교다.
+    이름만 보고는 못 가른다.
+    """
+    path = os.path.join(DATA_DIR, KINDS_PATH_NAME)
+    kinds = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            kinds = json.load(f).get("kinds", {})
+
+    # 기관마다 대표 계약 하나(계약일련번호)를 모은다
+    rep = {}
+    for fn in sorted(os.listdir(DATA_DIR)):
+        m = re.fullmatch(r"contracts_(\d{4})\.json", fn)
+        if not m:
+            continue
+        year = int(m.group(1))
+        with open(os.path.join(DATA_DIR, fn), encoding="utf-8") as f:
+            d = json.load(f)
+        for seq, i, _name, _date, _amt, _p in d["rows"]:
+            rep.setdefault(d["insts"][i], (seq, year))
+
+    todo = [inst for inst in rep if inst not in kinds]
+    # 한 번에 다 못 돌리는 환경(호출 시간이 짧게 잘리는 곳)에서는 나눠서 부른다.
+    # 중간중간 저장하므로 다음 호출이 남은 것부터 이어 받는다.
+    if limit:
+        todo = todo[:limit]
+    if not todo:
+        print(f"[분류] 기관 {len(kinds):,}곳 모두 알고 있다.", flush=True)
+        return kinds
+
+    def save():
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"kinds": kinds}, f, ensure_ascii=False, separators=(",", ":"))
+
+    def fetch(inst):
+        seq, year = rep[inst]
+        try:
+            m = KIND_RE.search(get(view_url(seq, year), tries=3))
+            return inst, ((m.group(1) if m and m.group(1) else "") or "미상")
+        except Exception:  # noqa: BLE001
+            return inst, None  # 못 읽은 기관은 비워 둔다 — 다음 실행에서 다시 묻는다
+
+    print(f"[분류] 모르는 기관 {len(todo):,}곳을 상세 화면에서 확인한다.", flush=True)
+    # 한 곳씩 받으면 900곳에 한 시간이 넘는다. 몇 갈래로 나눠 받되 동시 요청은 낮게 둔다.
+    done = 0
+    with cf.ThreadPoolExecutor(max_workers=workers or KIND_WORKERS) as ex:
+        for inst, kind in ex.map(fetch, todo):
+            done += 1
+            if kind is not None:
+                kinds[inst] = kind
+            if done % 50 == 0 or done == len(todo):
+                save()  # 중간에 끊겨도 여기까지는 남는다
+                print(f"  {done}/{len(todo)}곳", flush=True)
+
+    save()
+    failed = [i for i in todo if i not in kinds]
+    if failed:
+        print(f"[분류] {len(failed)}곳은 못 읽었다. 다음 실행에서 다시 묻는다.", flush=True)
+    tally = {}
+    for v in kinds.values():
+        tally[v] = tally.get(v, 0) + 1
+    print("[분류] " + ", ".join(f"{k} {v:,}곳" for k, v in sorted(tally.items(), key=lambda x: -x[1])), flush=True)
+    return kinds
+
+
 def write_index():
     """화면이 어떤 연도를 고를 수 있는지 알려주는 목록. 연도를 코드에 박아 두지 않으려는 것."""
     years = []
@@ -201,6 +296,7 @@ def main():
     t0 = time.time()
     for y in years:
         collect_year(y)
+    resolve_kinds()
     write_index()
     print(f"완료 ({time.time() - t0:.0f}초)", flush=True)
 

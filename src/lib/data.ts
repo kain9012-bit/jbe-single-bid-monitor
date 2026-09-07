@@ -1,4 +1,4 @@
-import type { Contract, YearFile } from '../types';
+import type { Contract, InstKind, InstKindsFile, YearFile } from '../types';
 import { OUTLIER_MIN, partnerKey } from './util';
 
 /**
@@ -28,6 +28,32 @@ export async function loadIndex(): Promise<YearInfo[]> {
 
 const url = (year: number) => `${import.meta.env.BASE_URL}data/contracts_${year}.json`;
 
+/**
+ * 계약기관 → 기관분류구분. 목록 화면에는 없는 값이라 수집기가 상세 화면에서 따로 채워 둔다.
+ * 1,000곳 남짓이라 한 번 받아 두고 모든 연도가 같이 쓴다.
+ */
+let kindMap: Record<string, string> | null = null;
+let kindPromise: Promise<Record<string, string>> | null = null;
+
+async function loadKinds(): Promise<Record<string, string>> {
+  if (kindMap) return kindMap;
+  if (kindPromise) return kindPromise;
+  kindPromise = (async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}data/inst_kinds.json`, { cache: 'no-cache' });
+      if (!res.ok) throw new Error(String(res.status));
+      kindMap = ((await res.json()) as InstKindsFile).kinds ?? {};
+    } catch {
+      // 분류를 못 받아도 나머지는 다 보여준다. 그때는 전부 '미상' 이 된다.
+      kindMap = {};
+    }
+    return kindMap;
+  })();
+  return kindPromise;
+}
+
+const KINDS = new Set(['시도교육청', '교육지원청', '직속기관', '학교']);
+
 export const metaOf = (year: number) => meta.get(year);
 export const outliersOf = (year: number) => outliers.get(year) ?? [];
 
@@ -38,15 +64,18 @@ export async function loadYear(year: number): Promise<Contract[]> {
   if (running) return running;
 
   const p = (async () => {
-    const res = await fetch(url(year), { cache: 'no-cache' });
+    const [res, kinds] = await Promise.all([fetch(url(year), { cache: 'no-cache' }), loadKinds()]);
     if (!res.ok) throw new Error(`${year}년 자료를 못 받았습니다 (HTTP ${res.status})`);
     const f = (await res.json()) as YearFile;
     const rows: Contract[] = f.rows.map(([seq, inst, name, date, amount, partner]) => {
       const pname = f.partners[partner] ?? '';
+      const iname = f.insts[inst] ?? '';
+      const k = kinds[iname] ?? '';
       return {
         seq,
         year: f.year,
-        inst: f.insts[inst] ?? '',
+        inst: iname,
+        kind: (KINDS.has(k) ? k : '미상') as InstKind,
         name,
         date,
         amount,

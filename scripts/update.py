@@ -118,6 +118,7 @@ def main():
     years = [int(a) for a in sys.argv[1:]] or [datetime.now().year]
     for y in years:
         update_year(y)
+    collect.resolve_kinds()   # 새로 나타난 계약기관의 분류만 채운다
     collect.write_index()
 
 

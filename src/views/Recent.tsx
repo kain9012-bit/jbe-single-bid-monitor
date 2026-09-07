@@ -10,7 +10,7 @@ const MINS = [
   { label: '5천만원 이상', v: 50_000_000 },
 ];
 
-export const Recent: React.FC<{ rows: Contract[] }> = ({ rows }) => {
+export const Recent: React.FC<{ rows: Contract[]; year: number }> = ({ rows, year }) => {
   const [min, setMin] = useState(0);
 
   const sorted = useMemo(
@@ -52,7 +52,7 @@ export const Recent: React.FC<{ rows: Contract[] }> = ({ rows }) => {
         <Stat label="최근 30일 업체" value={num(new Set(recent30.map((r) => r.pkey)).size)} />
       </div>
 
-      <ContractTable rows={sorted} initial={30} step={70} />
+      <ContractTable rows={sorted} initial={30} step={70} downloadName={`${year}년_1인수의계약_최근계약`} />
     </div>
   );
 };
