@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import type { Contract } from '../types';
-import { num, wonShort } from '../lib/util';
+import { num, won, wonShort } from '../lib/util';
 import { SectionTitle, Stat } from '../components/Ui';
 import { ContractTable } from '../components/ContractTable';
 
@@ -24,12 +24,16 @@ export const Recent: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [rows, min, q]);
 
-  /** 가장 최근 계약일 기준 최근 30일 */
-  const recent30 = useMemo(() => {
-    if (sorted.length === 0) return [];
-    const last = Date.parse(sorted[0].date);
-    return sorted.filter((r) => last - Date.parse(r.date) <= 30 * 86_400_000);
-  }, [sorted]);
+  /** 지금 목록에 있는 것 기준. 검색이나 금액 기준을 걸면 카드도 같이 따라간다. */
+  const stat = useMemo(
+    () => ({
+      count: sorted.length,
+      total: sorted.reduce((s, r) => s + r.amount, 0),
+      partners: new Set(sorted.map((r) => r.pkey)).size,
+    }),
+    [sorted],
+  );
+  const narrowed = q.trim() !== '' || min > 0;
 
   return (
     <div className="space-y-6">
@@ -71,9 +75,13 @@ export const Recent: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
       </div>
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
-        <Stat label="최근 30일 건수" value={num(recent30.length)} sub="가장 최근 계약일 기준" />
-        <Stat label="최근 30일 금액" value={wonShort(recent30.reduce((s, r) => s + r.amount, 0))} />
-        <Stat label="최근 30일 업체" value={num(new Set(recent30.map((r) => r.pkey)).size)} />
+        <Stat
+          label="계약 건수"
+          value={num(stat.count)}
+          sub={narrowed ? `${year}년 · 걸린 것만` : `${year}년`}
+        />
+        <Stat label="계약 금액" value={wonShort(stat.total)} sub={won(stat.total)} />
+        <Stat label="계약상대자" value={num(stat.partners)} sub="법인형태 표기 통합" />
       </div>
 
       <ContractTable rows={sorted} initial={30} step={70} downloadName={`${year}년_1인수의계약${q.trim() ? `_${q.trim()}` : '_전체'}`} />

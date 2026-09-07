@@ -143,83 +143,88 @@ export default function App() {
       <Header tab={tab} setTab={setTab} latestDate={latestDate} />
 
       <main id="container" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* 연도 고르개 — 모든 탭이 같은 연도를 본다 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-500 mr-1">회계연도</span>
-          {years.map(({ year: y }) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setYear(y)}
-              aria-pressed={y === year}
-              className={`px-3 py-1.5 rounded-md border text-sm font-bold tabular-nums transition-colors ${
-                y === year
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-          {busy && <span className="text-xs text-slate-500">불러오는 중…</span>}
-        </div>
-
-        {/* 기관분류 거르개 — 사이트 상세 화면의 기관분류구분 그대로다 */}
-        {all.length > 0 && (
+        {/* 거르개 한 줄 — 회계연도와 기관분류를 나란히 둔다. 모든 탭이 같은 값을 본다. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 mr-1">기관분류</span>
-            <button
-              type="button"
-              onClick={() => setKinds(new Set())}
-              aria-pressed={kinds.size === 0}
-              className={`px-3 py-1.5 rounded-md border text-sm font-bold transition-colors ${
-                kinds.size === 0
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700'
-              }`}
-            >
-              전체
-            </button>
-            {KIND_ORDER.filter((k) => (kindCounts.get(k) ?? 0) > 0).map((k) => {
-              const on = kinds.has(k);
-              return (
+            <span className="text-xs font-bold text-slate-500">회계연도</span>
+            {years.map(({ year: y }) => (
+              <button
+                key={y}
+                type="button"
+                onClick={() => setYear(y)}
+                aria-pressed={y === year}
+                className={`px-3 py-1.5 rounded-md border text-sm font-bold tabular-nums transition-colors ${
+                  y === year
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700'
+                }`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+
+          {all.length > 0 && (
+            <>
+              <span className="hidden sm:block w-px h-6 bg-slate-200" aria-hidden="true" />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">기관분류</span>
                 <button
-                  key={k}
                   type="button"
-                  onClick={() => toggleKind(k)}
-                  aria-pressed={on}
+                  onClick={() => setKinds(new Set())}
+                  aria-pressed={kinds.size === 0}
                   className={`px-3 py-1.5 rounded-md border text-sm font-bold transition-colors ${
-                    on
+                    kinds.size === 0
                       ? 'bg-slate-900 text-white border-slate-900'
                       : 'bg-white border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700'
                   }`}
                 >
-                  {kindLabel(k)}
-                  <span className={`ml-1.5 text-xs tabular-nums ${on ? 'text-slate-300' : 'text-slate-400'}`}>
-                    {(kindCounts.get(k) ?? 0).toLocaleString('ko-KR')}
-                  </span>
+                  전체
                 </button>
-              );
-            })}
-            {(kinds.size > 0 || excludedCount > 0) && (
-              <span className="text-xs text-slate-500 tabular-nums">
-                {num(rows.length)}건만 보는 중
-                {excludedCount > 0 && (
-                  <>
-                    {' · '}
+                {KIND_ORDER.filter((k) => (kindCounts.get(k) ?? 0) > 0).map((k) => {
+                  const on = kinds.has(k);
+                  return (
                     <button
+                      key={k}
                       type="button"
-                      onClick={() => setTab('settings')}
-                      className="font-bold text-slate-600 underline hover:text-blue-700"
+                      onClick={() => toggleKind(k)}
+                      aria-pressed={on}
+                      className={`px-3 py-1.5 rounded-md border text-sm font-bold transition-colors ${
+                        on
+                          ? 'bg-slate-900 text-white border-slate-900'
+                          : 'bg-white border-slate-300 text-slate-600 hover:border-blue-600 hover:text-blue-700'
+                      }`}
                     >
-                      제외 키워드로 {num(excludedCount)}건 뺌
+                      {kindLabel(k)}
+                      <span className={`ml-1.5 text-xs tabular-nums ${on ? 'text-slate-300' : 'text-slate-400'}`}>
+                        {num(kindCounts.get(k) ?? 0)}
+                      </span>
                     </button>
-                  </>
-                )}
-              </span>
-            )}
-          </div>
-        )}
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {busy && <span className="text-xs text-slate-500">불러오는 중…</span>}
+          {(kinds.size > 0 || excludedCount > 0) && (
+            <span className="text-xs text-slate-500 tabular-nums">
+              {num(rows.length)}건만 보는 중
+              {excludedCount > 0 && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() => setTab('settings')}
+                    className="font-bold text-slate-600 underline hover:text-blue-700"
+                  >
+                    제외 키워드로 {num(excludedCount)}건 뺌
+                  </button>
+                </>
+              )}
+            </span>
+          )}
+        </div>
 
         {year != null && all.length > 0 && <OutlierNotice rows={outliersOf(year)} />}
         {body()}
