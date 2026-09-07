@@ -57,13 +57,7 @@ export const Gate: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
       <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
         <Lock className="w-6 h-6" aria-hidden="true" />
       </div>
-      <div className="space-y-1">
-        <h3 className="text-base font-bold text-slate-800">담당자용 화면입니다</h3>
-        <p className="text-sm text-slate-500">
-          기계가 추린 <strong className="font-bold">확인 대상 후보</strong>가 들어 있어 가려 두었습니다.
-          암호는 담당자에게 문의하세요.
-        </p>
-      </div>
+      <h3 className="text-base font-bold text-slate-800">암호를 넣어 주세요</h3>
       <form onSubmit={submit} className="flex gap-2">
         <label className="flex-1">
           <span className="sr-only">암호</span>

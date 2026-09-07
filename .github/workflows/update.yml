@@ -1,4 +1,9 @@
-# 하루 한 번 **새로 올라온 계약만** 받아 화면을 다시 지어 GitHub Pages 에 올린다.
+# 하루 한 번 **새로 올라온 계약만** 받아 자료(JSON)를 GitHub Pages 에 올린다.
+#
+# 화면은 여기서 짓지 않는다. 화면과 자료를 갈라 뒀다 —
+#   자료: 이 워크플로 → GitHub Pages (https://<계정>.github.io/<저장소>/data/…)
+#   화면: 버셀이 저장소를 평범하게 빌드 → 브라우저가 열릴 때 위 주소에서 자료를 가져간다
+# 그래서 **자료가 바뀌어도 화면을 다시 지을 일이 없다.** 매일 하는 일이 수집 하나로 줄었다.
 #
 # 자료(연도별 5~10MB)는 저장소에 커밋하지 않는다 — 매일 커밋하면 한 해에 2GB가 쌓인다.
 # 대신 어제 결과를 Actions 캐시로 물려준다. 캐시는 깃 이력에 남지 않으므로 저장소가 안 커진다.
@@ -8,8 +13,8 @@
 #   따라잡기 실패 → update.py 가 사이트 표기 건수와 어긋난 걸 보고 스스로 전수 수집한다
 #
 # 다만 **아무것도 커밋하지 않으면 저장소가 60일 뒤 예약 실행을 자동으로 끈다**(깃허브 정책).
-# 그래서 매일 index.json 하나(500바이트)만 커밋한다. 이력도 안 커지고, 날짜별 건수 기록도 남는다.
-name: 수집 및 배포
+# 그래서 index.json·inst_kinds.json 만 커밋한다. 이력도 안 커지고, 날짜별 건수 기록도 남는다.
+name: 수집 및 자료 배포
 
 on:
   schedule:
@@ -65,12 +70,11 @@ jobs:
           timeout 1800 python scripts/update.py $YEARS
 
       # 저장소를 살아 있게 두는 심장박동. 60일 무활동이면 깃허브가 예약 실행을 꺼버린다.
-      # 큰 자료는 그대로 두고 index.json(500바이트)만 올린다.
+      # 큰 자료는 그대로 두고 작은 두 개만 올린다.
       - name: 수집 기록 남기기
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # inst_kinds.json 도 같이 올린다 — 캐시가 날아가도 900곳을 다시 묻지 않도록 씨앗을 남긴다
           git add public/data/index.json public/data/inst_kinds.json
           if git diff --cached --quiet; then
             echo "바뀐 게 없다. 커밋하지 않는다."
@@ -89,38 +93,13 @@ jobs:
           echo "3회 재시도 후에도 push 실패"
           exit 1
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm ci
-
-      - name: 화면 짓기
-        env:
-          # 판정 탭을 가리는 암호의 SHA-256 값. 저장소 Settings > Secrets 에 GATE_HASH 로 넣는다.
-          # 지금은 비워 둬서 잠그지 않는다 — 넣고 다시 배포하면 그때부터 잠긴다.
-          VITE_GATE_HASH: ${{ secrets.GATE_HASH }}
-        run: npm run build
-
-      # 버셀 — VERCEL_TOKEN 비밀값이 있을 때만 돈다. 없으면 이 단계는 통째로 건너뛰고 Pages 로 나간다.
-      # 수집·빌드는 위에서 이미 끝났으므로 버셀은 만들어진 dist 를 받아 서비스만 한다
-      # (버셀이 다시 빌드하지 않는다 — 그러면 파이썬 수집이 빠져 낡은 자료로 나간다).
-      - name: 버셀로 배포
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          npx --yes vercel@latest deploy dist \
-            --prod --yes --archive=tgz \
-            --token="${{ secrets.VERCEL_TOKEN }}"
-
       - uses: actions/configure-pages@v5
 
+      # public/ 을 통째로 올린다 — 안에 data/ 만 있으므로 주소는 .../<저장소>/data/… 가 된다.
+      # 여기에는 화면(index.html)이 없다. 화면은 버셀이 따로 서비스한다.
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: public
 
   deploy:
     needs: build

@@ -20,13 +20,29 @@ export interface YearInfo {
 }
 
 export async function loadIndex(): Promise<YearInfo[]> {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/index.json`, { cache: 'no-cache' });
+  const res = await fetch(`${DATA_BASE}index.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`연도 목록을 못 받았습니다 (HTTP ${res.status})`);
   const j = (await res.json()) as { years: YearInfo[] };
   return [...j.years].sort((a, b) => b.year - a.year);
 }
 
-const url = (year: number) => `${import.meta.env.BASE_URL}data/contracts_${year}.json`;
+/**
+ * 자료가 있는 자리.
+ *
+ * 화면과 자료를 갈라 두었다 — 화면은 버셀이 짓고, 자료는 GitHub Actions 가 모아
+ * GitHub Pages 에 올린다. 그래서 **자료가 바뀌어도 화면을 다시 지을 필요가 없다.**
+ * 브라우저가 열릴 때마다 최신 JSON 을 직접 가져간다.
+ *
+ * 버셀에서는 환경변수 VITE_DATA_BASE 로 Pages 주소를 준다.
+ * 값이 없으면(로컬 개발·Pages 자체 배포) 지금 있는 자리에서 찾는다.
+ * Pages 는 access-control-allow-origin: * 를 보내므로 다른 도메인에서 가져가도 막히지 않는다.
+ */
+const RAW_BASE =
+  (import.meta.env.VITE_DATA_BASE as string | undefined)?.trim() ||
+  `${import.meta.env.BASE_URL}data`;
+export const DATA_BASE = RAW_BASE.endsWith('/') ? RAW_BASE : `${RAW_BASE}/`;
+
+const url = (year: number) => `${DATA_BASE}contracts_${year}.json`;
 
 /**
  * 계약기관 → 기관분류구분. 목록 화면에는 없는 값이라 수집기가 상세 화면에서 따로 채워 둔다.
@@ -40,7 +56,7 @@ async function loadKinds(): Promise<Record<string, string>> {
   if (kindPromise) return kindPromise;
   kindPromise = (async () => {
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}data/inst_kinds.json`, { cache: 'no-cache' });
+      const res = await fetch(`${DATA_BASE}inst_kinds.json`, { cache: 'no-cache' });
       if (!res.ok) throw new Error(String(res.status));
       kindMap = ((await res.json()) as InstKindsFile).kinds ?? {};
     } catch {

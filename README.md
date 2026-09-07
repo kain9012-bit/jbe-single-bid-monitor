@@ -17,8 +17,10 @@
 ```
 scripts/collect.py     전수 수집 (연도별, 50~100요청)
 scripts/update.py      새로 올라온 것만 (보통 1~2요청)
-public/data/           contracts_<연도>.json · inst_kinds.json · index.json — 화면이 그대로 읽는다
+public/data/           contracts_<연도>.json · inst_kinds.json · index.json
+                       — GitHub Pages 가 이것만 올린다(화면 아님)
 src/                   화면 (Vite + React 19 + TypeScript + Tailwind v4, KRDS 토큰)
+                       — 버셀이 짓는다. 자료는 굽지 않고 실행 중에 Pages 에서 가져간다
 ```
 
 ## 쓰는 법
@@ -90,20 +92,26 @@ python scripts/update.py             # 이후 갱신은 이것만 (올해)
 - **회계연도와 계약연도는 다르다.** 2026 회계연도 파일에도 2025년 12월 계약이 250건쯤 들어 있다.
   월별 추이는 계약일자의 실제 연·월로 그리고, 연도 비교는 두 해가 같은 건만 쓴다.
 
-## 공유 — GitHub Pages
+## 화면과 자료를 갈라 둔다
 
-부서 직원이 주소만 열면 보는 화면이다. 저장소는 공개, 배포는 GitHub Actions 가 한다.
+```
+ GitHub Actions ──수집──▶ public/data ──▶ GitHub Pages   (자료 · JSON)
+                                              ▲
+                                              │ 브라우저가 열릴 때 가져간다
+ 저장소 ──push──▶ 버셀이 빌드 ──▶ 화면  ───────┘          (화면 · HTML/JS)
+```
 
-**처음 한 번**
+**자료를 빌드에 굽지 않는다.** 화면은 열릴 때마다 Pages 의 JSON 을 직접 가져가므로,
+자료가 바뀌어도 화면을 다시 지을 일이 없다. 그래서 매일 하는 일이 **수집 하나**로 줄었다.
+Pages 는 `access-control-allow-origin: *` 를 보내므로 버셀에서 가져가도 막히지 않는다.
 
-1. 깃허브에 저장소를 만든다(`jbe-single-bid-monitor`, Public).
-2. `Settings > Pages > Build and deployment > Source` 를 **GitHub Actions** 로 바꾼다.
-3. 첫 배포는 `Actions > 수집 및 배포 > Run workflow` 로 손수 돌린다.
+### 자료 — GitHub Actions → Pages
 
-**그 다음부터**
+`.github/workflows/update.yml` 이 **매일 05:00(KST)** 에 새로 올라온 계약만 받아
+`public/` 을 Pages 에 올린다. 이미 받은 건은 다시 받지 않는다 — 보통 2요청, 10초면 끝난다.
 
-`.github/workflows/update.yml` 이 **매일 05:00(KST)** 에 **새로 올라온 계약만** 받아
-화면을 짓고 Pages 에 올린다. 이미 받은 건은 다시 받지 않는다 — 보통 2요청, 10초면 끝난다.
+`Settings > Pages > Source` 를 **GitHub Actions** 로 둔다. 주소는
+`https://<계정>.github.io/<저장소>/data/…` 가 된다. 여기에는 화면이 없으므로 루트를 열면 404 다.
 
 받은 자료는 **저장소에 커밋하지 않는다.** 올해 파일이 5~10MB라 매일 커밋하면 한 해에 2GB가 쌓인다.
 그런데 커밋을 안 하면 러너가 매일 빈손으로 시작해 전수 수집을 하게 되므로,
@@ -117,34 +125,29 @@ python scripts/update.py             # 이후 갱신은 이것만 (올해)
 
 어느 경우든 결과가 사이트와 맞는다. 지난 연도 파일은 거의 안 바뀌므로 저장소에 한 번 넣어 둔 걸 그대로 쓴다.
 
-**대신 매일 `public/data/index.json`(500바이트) 하나만 커밋한다.** 저장소에 60일 동안 활동이 없으면
-깃허브가 예약 실행을 자동으로 꺼버리기 때문이다. 큰 자료는 그대로 두고 연도별 건수만 올리므로
-이력은 한 해에 0.2MB쯤 늘어난다. 덤으로 날짜별 건수 기록이 깃 이력에 남는다.
+**대신 매일 `index.json`·`inst_kinds.json` 만 커밋한다.** 저장소에 60일 동안 활동이 없으면
+깃허브가 예약 실행을 자동으로 꺼버리기 때문이다. 큰 자료는 그대로 두므로 이력은 한 해에 0.2MB쯤 늘어난다.
 
 > 깃허브 예약 실행은 몇 시간씩 밀리는 일이 있다.
 > 정시성이 필요하면 `Run workflow` 를 손으로 누르거나 자체 호스팅 러너로 옮긴다.
 > 참고로 `jbe.go.kr` 은 데이터센터 IP를 막지 않는다 — 해외 클라우드에서 340회 넘게 받아 확인했다.
 
-## 버셀로도 내보내기 — 보여주기만 맡긴다
+### 화면 — 버셀
 
-수집과 빌드는 **그대로 GitHub Actions 가 한다.** 버셀은 만들어진 `dist` 를 받아 서비스만 한다.
-버셀이 직접 빌드하게 두면 파이썬 수집 단계가 빠져 낡은 자료로 나가므로, 버셀 쪽 빌드는 꺼야 한다.
+저장소를 그대로 Import 하면 된다. 빌드를 막을 필요도, 토큰을 넣을 필요도 없다.
 
-저장소 비밀값 `VERCEL_TOKEN` 이 있을 때만 그 단계가 돈다. 없으면 통째로 건너뛰고 Pages 로만 나간다.
+1. 프레임워크는 **Vite** 로 잡힌다 (`npm run build`, 출력 `dist`).
+2. 환경변수 **`VITE_DATA_BASE`** 에 Pages 의 자료 주소를 넣는다:
+   `https://<계정>.github.io/<저장소>/data/`
+   비워 두면 자기 자신에서 찾으므로 자료를 못 받는다.
+3. (선택) 암호를 바꾸려면 **`VITE_GATE_HASH`** 에 새 암호의 SHA-256 16진값을 넣는다.
 
-**처음 한 번**
-
-1. 버셀에서 새 프로젝트를 만들고 이 저장소를 가져온다(Import).
-2. `Settings > Build and Deployment` 에서 **Framework Preset 을 `Other`**, Build Command 를 비운다.
-3. `Settings > Git` 에서 **Ignored Build Step** 을 `exit 0` 으로 둔다 —
-   push 마다 버셀이 스스로 빌드하는 걸 막는다. 배포는 Actions 가 한다.
-4. `Settings > General` 에서 **Project ID**, 팀 `Settings > General` 에서 **Team ID** 를 복사한다.
-5. 버셀 `Account Settings > Tokens` 에서 토큰을 만든다.
-6. 깃허브 저장소 `Settings > Secrets and variables > Actions` 에 셋을 넣는다:
-   `VERCEL_TOKEN`, `VERCEL_ORG_ID`(=Team ID), `VERCEL_PROJECT_ID`.
+`vercel.json` 의 `ignoreCommand` 가 **자료만 바뀐 커밋에서는 다시 짓지 않게** 막는다.
+매일 올라오는 수집 기록 커밋 때마다 화면을 다시 지을 이유가 없다.
 
 > 버셀 Hobby(무료)는 공정사용 규정상 **비상업·개인 용도 전용**이다. 부서 업무 도구로 쓰는 건
-> 회색지대이니 필요하면 Pro 를 보거나 Pages 를 그대로 쓰는 편이 낫다.
+> 회색지대이니 필요하면 Pro 를 보거나 화면도 Pages 로 내보내는 편이 낫다
+> (그 경우 `VITE_DATA_BASE` 를 비우고 워크플로가 `dist` 를 올리게 되돌리면 된다).
 
 ## 암호 — 자물쇠가 아니라 가림막이다
 
