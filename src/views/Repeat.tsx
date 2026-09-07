@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, ShieldCheck } from 'lucide-react';
 import type { Contract } from '../types';
 import { repeatGroups } from '../lib/rules';
-import { korDate, num, wonShort } from '../lib/util';
+import { kindLabel, korDate, num, viewUrl, wonShort } from '../lib/util';
+import { contractsCsv, downloadCsv, safeName, toCsv } from '../lib/csv';
 import { Badge, EmptyState, LimitNote, SectionTitle, Stat } from '../components/Ui';
 import { ContractTable } from '../components/ContractTable';
 
@@ -79,6 +80,48 @@ export const Repeat: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
   );
 
   const amountLabel = AMOUNTS.find((a) => a.v === minAmount)?.label ?? '';
+  const tag = `${year}년_반복수의계약_건당${amountLabel}_${minCount}회이상${
+    windowDays === null ? '' : `_${windowDays === 0 ? '같은날' : `${windowDays}일`}`
+  }`;
+
+  /** 걸린 조합을 한 줄씩. 어느 기관이 어느 업체와 몇 번인지만 훑을 때 쓴다. */
+  const downloadGroups = () =>
+    downloadCsv(
+      safeName(`${tag}_조합요약`),
+      toCsv(
+        ['기관분류', '계약기관', '계약상대자', '건수', '합계금액(원)', '첫 계약일', '마지막 계약일', '기간(일)'],
+        groups.map((g) => [
+          kindLabel(g.items[0].kind),
+          g.inst,
+          g.partner,
+          g.count,
+          g.total,
+          g.from,
+          g.to,
+          g.spanDays,
+        ]),
+      ),
+    );
+
+  /** 걸린 조합에 들어 있는 계약을 전부. 카드를 하나씩 열지 않아도 되게. */
+  const downloadItems = () =>
+    downloadCsv(
+      safeName(`${tag}_계약전체`),
+      contractsCsv(
+        groups
+          .flatMap((g) => g.items)
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .map((r) => ({
+            date: r.date,
+            kindLabel: kindLabel(r.kind),
+            inst: r.inst,
+            name: r.name,
+            partner: r.partner,
+            amount: r.amount,
+            url: viewUrl(r.seq, r.year),
+          })),
+      ),
+    );
 
   return (
     <div className="space-y-6">
@@ -122,7 +165,33 @@ export const Repeat: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
         계약 근거 조항과 예정금액은 목록에 없어서 판정에 넣지 않았습니다 — 각 건의 &lsquo;원문&rsquo; 링크로 확인하세요.
       </LimitNote>
 
-      <SectionTitle count={groups.length} desc="건수가 많은 순서">걸린 조합</SectionTitle>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle count={groups.length} desc="건수가 많은 순서">걸린 조합</SectionTitle>
+        {groups.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={downloadGroups}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300
+                         text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4" aria-hidden="true" />
+              조합 요약
+              <span className="text-xs font-medium text-slate-400 tabular-nums">{num(groups.length)}줄</span>
+            </button>
+            <button
+              type="button"
+              onClick={downloadItems}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300
+                         text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4" aria-hidden="true" />
+              해당 계약 전체
+              <span className="text-xs font-medium text-slate-400 tabular-nums">{num(sum.items)}건</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {groups.length === 0 ? (
         <EmptyState

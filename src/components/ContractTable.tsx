@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Download, ExternalLink } from 'lucide-react';
 import type { Contract } from '../types';
 import { korDate, kindLabel, num, viewUrl, won } from '../lib/util';
-import { downloadCsv, safeName, toCsv } from '../lib/csv';
+import { contractsCsv, downloadCsv, safeName } from '../lib/csv';
 import { GhostBtn } from './Ui';
 
 interface Props {
@@ -33,17 +33,16 @@ export const ContractTable: React.FC<Props> = ({
   const download = () =>
     downloadCsv(
       safeName(downloadName ?? '1인수의계약'),
-      toCsv(
-        ['계약일자', '기관분류', '계약기관', '계약명', '계약상대자', '계약금액', '원문'],
-        rows.map((r) => [
-          r.date,
-          kindLabel(r.kind),
-          r.inst,
-          r.name,
-          r.partner,
-          r.amount,
-          viewUrl(r.seq, r.year),
-        ]),
+      contractsCsv(
+        rows.map((r) => ({
+          date: r.date,
+          kindLabel: kindLabel(r.kind),
+          inst: r.inst,
+          name: r.name,
+          partner: r.partner,
+          amount: r.amount,
+          url: viewUrl(r.seq, r.year),
+        })),
       ),
     );
 

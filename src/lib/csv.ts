@@ -31,5 +31,23 @@ export function downloadCsv(filename: string, csv: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** 계약 목록 CSV. 어느 화면에서 내리든 칸 구성이 같아야 엑셀에서 이어 붙이기 편하다. */
+export function contractsCsv(rows: ContractLike[]): string {
+  return toCsv(
+    ['계약일자', '기관분류', '계약기관', '계약명', '계약상대자', '계약금액', '원문'],
+    rows.map((r) => [r.date, r.kindLabel, r.inst, r.name, r.partner, r.amount, r.url]),
+  );
+}
+
+export interface ContractLike {
+  date: string;
+  kindLabel: string;
+  inst: string;
+  name: string;
+  partner: string;
+  amount: number;
+  url: string;
+}
+
 /** 파일 이름에 쓸 수 없는 글자를 걷어낸다 */
 export const safeName = (s: string) => s.replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);

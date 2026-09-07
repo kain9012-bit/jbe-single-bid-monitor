@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import type { Contract } from '../types';
 import { rollup } from '../lib/rules';
-import { num, wonShort } from '../lib/util';
+import { kindLabel, num, wonShort } from '../lib/util';
 import { downloadCsv, safeName, toCsv } from '../lib/csv';
-import { EmptyState, SectionTitle } from '../components/Ui';
+import { Badge, EmptyState, SectionTitle } from '../components/Ui';
 import { ContractTable } from '../components/ContractTable';
 
 export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, year }) => {
@@ -15,12 +15,16 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
 
   const list = useMemo(() => rollup(rows, by), [rows, by]);
 
-  const filtered = useMemo(() => {
+  /** 검색에 걸린 것 전부. 내려받기는 이걸 담는다. */
+  const matched = useMemo(() => {
     const t = q.trim();
-    if (!t) return list.slice(0, 50);
+    if (!t) return list;
     const low = t.toLowerCase();
-    return list.filter((r) => r.key.toLowerCase().includes(low)).slice(0, 200);
+    return list.filter((r) => r.key.toLowerCase().includes(low));
   }, [list, q]);
+  /** 화면에 그리는 몫만 잘라 쓴다(수천 줄을 한 번에 그리면 느려진다) */
+  const [shown, setShown] = useState(50);
+  const filtered = useMemo(() => matched.slice(0, shown), [matched, shown]);
 
   const detail = picked ? list.find((r) => r.key === picked) : null;
 
@@ -30,8 +34,15 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
     downloadCsv(
       safeName(`${year}년_1인수의계약_${what}별집계${q.trim() ? `_${q.trim()}` : ''}`),
       toCsv(
-        [what, '건수', '합계금액(원)', by === 'inst' ? '거래업체수' : '거래기관수'],
-        filtered.map((r) => [r.key, r.count, r.total, r.partners]),
+        by === 'inst'
+          ? ['기관분류', '기관', '건수', '합계금액(원)', '거래업체수']
+          : ['업체', '건수', '합계금액(원)', '거래기관수'],
+        // 화면에 50곳만 보여도 파일에는 **걸린 것 전부**를 담는다
+        matched.map((r) =>
+          by === 'inst'
+            ? [kindLabel(r.items[0].kind), r.key, r.count, r.total, r.partners]
+            : [r.key, r.count, r.total, r.partners],
+        ),
       ),
     );
   };
@@ -67,6 +78,7 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
               onChange={(e) => {
                 setQ(e.target.value);
                 setPicked(null);
+                setShown(50);
               }}
               placeholder={by === 'partner' ? '업체 이름 일부' : '학교·기관 이름 일부'}
               className="w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm
@@ -77,10 +89,10 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-slate-500">
             {q.trim()
-              ? `${num(filtered.length)}곳 (최대 200곳 표시)`
-              : `${year}년 계약 금액 상위 50곳을 보여줍니다. 이름을 입력해 찾으세요.`}
+              ? `${num(matched.length)}곳 걸림 · ${num(filtered.length)}곳 표시`
+              : `${year}년 계약 금액 순으로 ${num(filtered.length)}곳 표시 (전체 ${num(matched.length)}곳)`}
           </p>
-          {!picked && filtered.length > 0 && (
+          {!picked && matched.length > 0 && (
             <button
               type="button"
               onClick={downloadList}
@@ -89,7 +101,7 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
             >
               <Download className="w-4 h-4" aria-hidden="true" />
               이 목록 엑셀로 내려받기
-              <span className="text-xs font-medium text-slate-400 tabular-nums">{num(filtered.length)}곳</span>
+              <span className="text-xs font-medium text-slate-400 tabular-nums">{num(matched.length)}곳</span>
             </button>
           )}
         </div>
@@ -104,9 +116,12 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
           >
             ← 목록으로
           </button>
-          <SectionTitle count={detail.count} desc={`합계 ${wonShort(detail.total)}`}>
-            {detail.key}
-          </SectionTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            {by === 'inst' && <Badge tone="slate">{kindLabel(detail.items[0].kind)}</Badge>}
+            <SectionTitle count={detail.count} desc={`합계 ${wonShort(detail.total)}`}>
+              {detail.key}
+            </SectionTitle>
+          </div>
           <ContractTable
             rows={[...detail.items].sort((a, b) => b.date.localeCompare(a.date))}
             hideInst={by === 'inst'}
@@ -137,9 +152,12 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
                   onClick={() => setPicked(r.key)}
                 >
                   <td className="px-4 py-2.5">
-                    <button type="button" className="font-bold text-slate-900 hover:text-blue-700 text-left">
-                      {r.key}
-                    </button>
+                    <span className="flex items-center gap-2">
+                      {by === 'inst' && <Badge tone="slate">{kindLabel(r.items[0].kind)}</Badge>}
+                      <button type="button" className="font-bold text-slate-900 hover:text-blue-700 text-left">
+                        {r.key}
+                      </button>
+                    </span>
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{num(r.count)}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-bold text-slate-900">{wonShort(r.total)}</td>
@@ -148,6 +166,19 @@ export const Lookup: React.FC<{ rows: Contract[]; year: number }> = ({ rows, yea
               ))}
             </tbody>
           </table>
+          {filtered.length < matched.length && (
+            <div className="p-3 text-center border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShown(shown + 200)}
+                className="px-3 py-2 rounded-md border border-slate-300 text-sm font-bold text-slate-700
+                           hover:border-blue-600 hover:text-blue-700 transition-colors"
+              >
+                {num(Math.min(200, matched.length - filtered.length))}곳 더 보기 · 남은{' '}
+                {num(matched.length - filtered.length)}곳
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

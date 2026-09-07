@@ -11,9 +11,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Building2, Coins, FileText, Handshake, TriangleAlert } from 'lucide-react';
+import { Building2, Coins, Download, FileText, Handshake, TriangleAlert } from 'lucide-react';
 import type { Contract } from '../types';
-import { BANDS, KIND_ORDER, bandOf, kindLabel, monthOf, num, won, wonShort } from '../lib/util';
+import { BANDS, KIND_ORDER, bandOf, kindLabel, monthOf, num, viewUrl, won, wonShort } from '../lib/util';
+import { contractsCsv, downloadCsv, safeName, toCsv } from '../lib/csv';
 import { SectionTitle, Stat } from '../components/Ui';
 
 const BLUE = '#256ef4';
@@ -147,8 +148,61 @@ export const Overview: React.FC<Props> = ({ rows, year, byYear }) => {
 
   const fmt = (v: number) => (metric === 'count' ? num(v) : wonShort(v));
 
+  /** 지금 거르개가 걸린 상태 그대로 전부 내린다 */
+  const downloadAll = () =>
+    downloadCsv(
+      safeName(`${year}년_1인수의계약_전체`),
+      contractsCsv(
+        [...rows]
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .map((r) => ({
+            date: r.date,
+            kindLabel: kindLabel(r.kind),
+            inst: r.inst,
+            name: r.name,
+            partner: r.partner,
+            amount: r.amount,
+            url: viewUrl(r.seq, r.year),
+          })),
+      ),
+    );
+
+  const downloadSummary = () =>
+    downloadCsv(
+      safeName(`${year}년_1인수의계약_집계`),
+      [
+        toCsv(['월별', '건수', '금액(원)'], monthly.data.map((d) => [d.ym, d.count, d.amount])),
+        '',
+        toCsv(['금액대', '건수', '금액(원)'], bands.map((b) => [b.label, b.count, b.amount])),
+        '',
+        toCsv(['기관분류', '건수', '금액(원)'], kinds.map(([k, v]) => [kindLabel(k), v.count, v.amount])),
+      ].join('\r\n'),
+    );
+
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={downloadSummary}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300
+                     text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+        >
+          <Download className="w-4 h-4" aria-hidden="true" />
+          집계표 내려받기
+        </button>
+        <button
+          type="button"
+          onClick={downloadAll}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300
+                     text-sm font-bold text-slate-700 hover:border-blue-600 hover:text-blue-700 transition-colors"
+        >
+          <Download className="w-4 h-4" aria-hidden="true" />
+          계약 전체 내려받기
+          <span className="text-xs font-medium text-slate-400 tabular-nums">{num(rows.length)}건</span>
+        </button>
+      </div>
+
       <section className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Stat icon={<FileText className="w-3.5 h-3.5" />} label="계약 건수" value={num(stats.count)} sub={`${year}년 1인수의`} />
         <Stat icon={<Coins className="w-3.5 h-3.5" />} label="계약 금액" value={wonShort(stats.total)} sub={won(stats.total)} />

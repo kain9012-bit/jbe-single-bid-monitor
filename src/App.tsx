@@ -8,9 +8,11 @@ import { Overview } from './views/Overview';
 import { Repeat } from './views/Repeat';
 import { Lookup } from './views/Lookup';
 import { Recent } from './views/Recent';
+import { Settings } from './views/Settings';
 import { loadIndex, loadYear, metaOf, outliersOf, type YearInfo } from './lib/data';
 import { OutlierNotice } from './components/OutlierNotice';
-import { KIND_ORDER, kindLabel } from './lib/util';
+import { KIND_ORDER, kindLabel, num } from './lib/util';
+import { loadMine, loadShared, makeMatcher } from './lib/exclude';
 import type { Contract, InstKind, Tab } from './types';
 
 export default function App() {
@@ -24,6 +26,9 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(() => isUnlocked());
   // 기관분류 거르개. 비어 있으면 전부 본다. 모든 탭이 같은 값을 쓴다.
   const [kinds, setKinds] = useState<Set<InstKind>>(new Set());
+  // 제외 키워드 — 공용(저장소 파일)과 개인(이 브라우저)을 합쳐 쓴다. lib/exclude.ts 참고.
+  const [shared, setShared] = useState<string[]>([]);
+  const [mine, setMine] = useState<string[]>(() => loadMine());
 
   /** 연도 파일은 무거우므로 보는 연도만 받는다. 이미 받은 건 다시 받지 않는다. */
   const need = useCallback(
@@ -43,25 +48,38 @@ export default function App() {
     [byYear],
   );
 
-  // 어떤 연도가 있는지부터 물어보고, 가장 최근 연도를 연다
+  // 어떤 연도가 있는지부터 물어보고, 가장 최근 연도를 연다.
+  // 잠겨 있으면 아예 받지 않는다 — 열기 전에 5MB를 미리 끌어올 이유가 없다.
   useEffect(() => {
+    if (gateEnabled && !unlocked) return;
     loadIndex()
       .then((ys) => {
         setYears(ys);
         setYear((y) => y ?? ys[0]?.year ?? null);
       })
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [unlocked]);
 
   useEffect(() => {
     if (year != null) void need(year);
   }, [year, need]);
 
+  useEffect(() => {
+    void loadShared().then(setShared);
+  }, []);
+
   const all = year != null ? byYear.get(year) ?? [] : [];
-  const rows = useMemo(
+  // 거르는 순서: 기관분류 → 제외 키워드. 뺀 건수는 아래에 늘 보여준다.
+  const byKind = useMemo(
     () => (kinds.size === 0 ? all : all.filter((r) => kinds.has(r.kind))),
     [all, kinds],
   );
+  const matcher = useMemo(() => makeMatcher([...shared, ...mine]), [shared, mine]);
+  const rows = useMemo(
+    () => (matcher ? byKind.filter((r) => !matcher(r)) : byKind),
+    [byKind, matcher],
+  );
+  const excludedCount = byKind.length - rows.length;
   /** 거르개 단추에 붙일 분류별 건수 */
   const kindCounts = useMemo(() => {
     const m = new Map<InstKind, number>();
@@ -83,10 +101,18 @@ export default function App() {
   const body = () => {
     if (err) return <LoadError message={err} onRetry={() => (year != null ? void need(year) : window.location.reload())} />;
     if (year == null) return <Loading label="연도 목록을 불러오는 중" />;
-    if (all.length === 0) return <Loading />;
-    if (gateEnabled && !unlocked && tab === 'repeat') {
-      return <Gate onUnlock={() => setUnlocked(true)} />;
+    if (tab === 'settings') {
+      return (
+        <Settings
+          shared={shared}
+          mine={mine}
+          setMine={setMine}
+          excludedCount={excludedCount}
+          totalCount={byKind.length}
+        />
+      );
     }
+    if (all.length === 0) return <Loading />;
     switch (tab) {
       case 'home':
         return <Overview rows={rows} year={year} byYear={byYear} />;
@@ -101,13 +127,26 @@ export default function App() {
     }
   };
 
+  // 잠겨 있으면 암호 화면만 보여준다. 탭도 자료도 그 뒤에 있다.
+  if (gateEnabled && !unlocked) {
+    return (
+      <div className="min-h-screen bg-white text-slate-800 font-sans antialiased flex flex-col">
+        <Header tab={tab} setTab={setTab} locked hideTabs />
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <Gate onUnlock={() => setUnlocked(true)} />
+        </main>
+        <Footer collectedAt={null} />
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen overflow-x-clip bg-white text-slate-800 font-sans antialiased
                  flex flex-col selection:bg-blue-600 selection:text-white"
     >
       <a className="krds-skip" href="#container">본문 바로가기</a>
-      <Header tab={tab} setTab={setTab} latestDate={latestDate} locked={gateEnabled && !unlocked} />
+      <Header tab={tab} setTab={setTab} latestDate={latestDate} />
 
       <main id="container" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* 연도 고르개 — 모든 탭이 같은 연도를 본다 */}
@@ -171,9 +210,21 @@ export default function App() {
                 </button>
               );
             })}
-            {kinds.size > 0 && (
+            {(kinds.size > 0 || excludedCount > 0) && (
               <span className="text-xs text-slate-500 tabular-nums">
-                {rows.length.toLocaleString('ko-KR')}건만 보는 중
+                {num(rows.length)}건만 보는 중
+                {excludedCount > 0 && (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => setTab('settings')}
+                      className="font-bold text-slate-600 underline hover:text-blue-700"
+                    >
+                      제외 키워드로 {num(excludedCount)}건 뺌
+                    </button>
+                  </>
+                )}
               </span>
             )}
           </div>

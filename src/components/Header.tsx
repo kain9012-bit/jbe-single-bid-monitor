@@ -8,6 +8,7 @@ const TABS: { id: Tab; label: string; gated?: boolean }[] = [
   { id: 'repeat', label: '반복 수의계약', gated: true },
   { id: 'lookup', label: '기관·업체 조회' },
   { id: 'recent', label: '최근 계약' },
+  { id: 'settings', label: '설정' },
 ];
 
 interface Props {
@@ -15,11 +16,13 @@ interface Props {
   setTab: (t: Tab) => void;
   /** 자료가 어느 계약일까지 와 있는지 */
   latestDate?: string | null;
-  /** 판정 탭이 아직 잠겨 있는지 */
+  /** 아직 잠겨 있는지 */
   locked?: boolean;
+  /** 잠금 화면에서는 탭을 감춘다 */
+  hideTabs?: boolean;
 }
 
-export const Header: React.FC<Props> = ({ tab, setTab, latestDate, locked }) => (
+export const Header: React.FC<Props> = ({ tab, setTab, latestDate, locked, hideTabs }) => (
   <header className="bg-white sticky top-0 z-30 border-b border-slate-200">
     {/* 안내 띠 — 공식 통계가 아니라는 것을 먼저 밝힌다 */}
     <div className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -52,6 +55,7 @@ export const Header: React.FC<Props> = ({ tab, setTab, latestDate, locked }) => 
           </span>
         </button>
 
+        {!hideTabs && (
         <nav aria-label="주 메뉴" className="-mb-px w-full sm:w-auto">
           <ul className="flex overflow-x-auto overflow-y-hidden no-scrollbar" role="tablist">
             {TABS.map(({ id, label, gated }) => {
@@ -82,6 +86,7 @@ export const Header: React.FC<Props> = ({ tab, setTab, latestDate, locked }) => 
             })}
           </ul>
         </nav>
+        )}
       </div>
     </div>
   </header>

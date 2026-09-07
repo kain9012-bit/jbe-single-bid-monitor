@@ -54,4 +54,4 @@ export interface RepeatGroup {
   items: Contract[];
 }
 
-export type Tab = 'home' | 'repeat' | 'lookup' | 'recent';
+export type Tab = 'home' | 'repeat' | 'lookup' | 'recent' | 'settings';

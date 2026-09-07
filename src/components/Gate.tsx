@@ -3,17 +3,21 @@ import { Lock } from 'lucide-react';
 import { GhostBtn } from './Ui';
 
 /**
- * 판정 탭(반복 수의계약)을 암호로 가린다.
+ * 화면 전체를 암호로 가린다.
  *
  * **이건 자물쇠가 아니라 가림막이다.** 정적 페이지라 암호 확인이 브라우저 안에서 일어나고,
- * 원자료(public/data/*.json)는 주소만 알면 누구나 받을 수 있다. 막으려는 것은
- * '누가 봐도 위반처럼 보이는 목록'이 검색이나 링크로 흘러다니는 일이지, 자료 유출이 아니다.
+ * 확인에 쓰는 해시는 어차피 배포된 자바스크립트 안에 들어간다. 게다가 원자료
+ * (public/data/*.json)는 주소만 알면 암호 없이도 받을 수 있다.
+ * 막으려는 것은 '주소를 우연히 연 사람이 바로 들여다보는 일'이지 자료 유출이 아니다.
  * 진짜 접근통제가 필요하면 Cloudflare Access 같은 걸 앞에 세워야 한다 — README에 적어 두었다.
  *
- * 암호는 저장소에 넣지 않는다. 빌드할 때 VITE_GATE_HASH(암호의 SHA-256 16진값)만 박히고,
- * 그 값은 깃허브 Actions 비밀값에서 온다. 값이 없으면(로컬 개발) 잠그지 않는다.
+ * 기본값은 소스에 박아 둔 해시를 쓴다(설정 없이 바로 동작하라고).
+ * 깃허브 Actions 비밀값 VITE_GATE_HASH(암호의 SHA-256 16진값)를 넣으면 그게 이긴다.
+ * 둘 다 없으면 잠그지 않는다.
  */
-const HASH = (import.meta.env.VITE_GATE_HASH as string | undefined)?.trim().toLowerCase() ?? '';
+const DEFAULT_HASH = '32b20db069de4f124728e96745f985fc068aa47434cb6cc6f554c88b478a4ede';
+const ENV_HASH = (import.meta.env.VITE_GATE_HASH as string | undefined)?.trim().toLowerCase() ?? '';
+const HASH = ENV_HASH.length === 64 ? ENV_HASH : DEFAULT_HASH;
 
 export const gateEnabled = HASH.length === 64;
 
@@ -56,8 +60,8 @@ export const Gate: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
       <div className="space-y-1">
         <h3 className="text-base font-bold text-slate-800">담당자용 화면입니다</h3>
         <p className="text-sm text-slate-500">
-          기계가 추린 <strong className="font-bold">확인 대상 후보</strong>라 오해를 부르기 쉬워 가려 두었습니다.
-          암호는 담당 부서에 문의하세요.
+          기계가 추린 <strong className="font-bold">확인 대상 후보</strong>가 들어 있어 가려 두었습니다.
+          암호는 담당자에게 문의하세요.
         </p>
       </div>
       <form onSubmit={submit} className="flex gap-2">
@@ -78,7 +82,7 @@ export const Gate: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
       </form>
       {err && <p className="text-sm font-bold text-red-600" role="alert">{err}</p>}
       <p className="text-xs text-slate-400">
-        현황·기관·업체 조회 탭은 암호 없이 볼 수 있습니다.
+        1인 수의계약 모니터 · 전북특별자치도교육청
       </p>
     </div>
   );
