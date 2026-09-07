@@ -4,9 +4,7 @@ import { Footer } from './components/Footer';
 import { TopButton } from './components/TopButton';
 import { LoadError, Loading } from './components/Ui';
 import { Gate, gateEnabled, isUnlocked } from './components/Gate';
-import { Overview } from './views/Overview';
 import { Repeat } from './views/Repeat';
-import { Lookup } from './views/Lookup';
 import { Recent } from './views/Recent';
 import { Settings } from './views/Settings';
 import { loadIndex, loadYear, metaOf, outliersOf, type YearInfo } from './lib/data';
@@ -16,7 +14,7 @@ import { loadMine, loadShared, makeMatcher } from './lib/exclude';
 import type { Contract, InstKind, Tab } from './types';
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('home');
+  const [tab, setTab] = useState<Tab>('repeat');
   const [years, setYears] = useState<YearInfo[]>([]);
   const [year, setYear] = useState<number | null>(null);
   const [byYear, setByYear] = useState<Map<number, Contract[]>>(new Map());
@@ -114,12 +112,8 @@ export default function App() {
     }
     if (all.length === 0) return <Loading />;
     switch (tab) {
-      case 'home':
-        return <Overview rows={rows} year={year} byYear={byYear} />;
       case 'repeat':
         return <Repeat rows={rows} year={year} />;
-      case 'lookup':
-        return <Lookup rows={rows} year={year} />;
       case 'recent':
         return <Recent rows={rows} year={year} />;
       default:
@@ -168,9 +162,6 @@ export default function App() {
             </button>
           ))}
           {busy && <span className="text-xs text-slate-500">불러오는 중…</span>}
-          {byYear.size > 1 && (
-            <span className="text-xs text-slate-400">받아 둔 연도끼리는 &lsquo;연도 비교&rsquo;에 함께 그립니다</span>
-          )}
         </div>
 
         {/* 기관분류 거르개 — 사이트 상세 화면의 기관분류구분 그대로다 */}

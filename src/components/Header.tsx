@@ -4,9 +4,7 @@ import type { Tab } from '../types';
 import { korDate } from '../lib/util';
 
 const TABS: { id: Tab; label: string; gated?: boolean }[] = [
-  { id: 'home', label: '현황' },
   { id: 'repeat', label: '반복 수의계약', gated: true },
-  { id: 'lookup', label: '기관·업체 조회' },
   { id: 'recent', label: '최근 계약' },
   { id: 'settings', label: '설정' },
 ];
@@ -41,7 +39,7 @@ export const Header: React.FC<Props> = ({ tab, setTab, latestDate, locked, hideT
       <div className="flex flex-wrap items-center justify-between gap-x-6">
         <button
           type="button"
-          onClick={() => setTab('home')}
+          onClick={() => setTab('repeat')}
           className="flex items-center gap-2.5 py-3.5 text-left group shrink-0"
         >
           <span className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 group-hover:bg-blue-700 transition-colors">
