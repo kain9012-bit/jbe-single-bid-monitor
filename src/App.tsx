@@ -10,7 +10,7 @@ import { Settings } from './views/Settings';
 import { loadIndex, loadYear, metaOf, outliersOf, type YearInfo } from './lib/data';
 import { OutlierNotice } from './components/OutlierNotice';
 import { KIND_ORDER, kindLabel, num } from './lib/util';
-import { loadMine, loadShared, makeMatcher } from './lib/exclude';
+import { loadMine, makeMatcher } from './lib/exclude';
 import type { Contract, InstKind, Tab } from './types';
 
 export default function App() {
@@ -24,8 +24,7 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(() => isUnlocked());
   // 기관분류 거르개. 비어 있으면 전부 본다. 모든 탭이 같은 값을 쓴다.
   const [kinds, setKinds] = useState<Set<InstKind>>(new Set());
-  // 제외 키워드 — 공용(저장소 파일)과 개인(이 브라우저)을 합쳐 쓴다. lib/exclude.ts 참고.
-  const [shared, setShared] = useState<string[]>([]);
+  // 제외 키워드 — 이 브라우저에만 남는다. lib/exclude.ts 참고.
   const [mine, setMine] = useState<string[]>(() => loadMine());
 
   /** 연도 파일은 무거우므로 보는 연도만 받는다. 이미 받은 건 다시 받지 않는다. */
@@ -62,17 +61,13 @@ export default function App() {
     if (year != null) void need(year);
   }, [year, need]);
 
-  useEffect(() => {
-    void loadShared().then(setShared);
-  }, []);
-
   const all = year != null ? byYear.get(year) ?? [] : [];
   // 거르는 순서: 기관분류 → 제외 키워드. 뺀 건수는 아래에 늘 보여준다.
   const byKind = useMemo(
     () => (kinds.size === 0 ? all : all.filter((r) => kinds.has(r.kind))),
     [all, kinds],
   );
-  const matcher = useMemo(() => makeMatcher([...shared, ...mine]), [shared, mine]);
+  const matcher = useMemo(() => makeMatcher(mine), [mine]);
   const rows = useMemo(
     () => (matcher ? byKind.filter((r) => !matcher(r)) : byKind),
     [byKind, matcher],
@@ -102,7 +97,6 @@ export default function App() {
     if (tab === 'settings') {
       return (
         <Settings
-          shared={shared}
           mine={mine}
           setMine={setMine}
           excludedCount={excludedCount}

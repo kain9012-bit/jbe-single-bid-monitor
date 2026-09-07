@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { saveMine, tidy } from '../lib/exclude';
-import { GhostBtn, LimitNote, SectionTitle } from '../components/Ui';
+import { GhostBtn, SectionTitle } from '../components/Ui';
 import { num } from '../lib/util';
 
 interface Props {
-  shared: string[];
   mine: string[];
   setMine: (list: string[]) => void;
   /** 지금 이 설정으로 몇 건이 빠지고 있는지 */
@@ -13,7 +12,7 @@ interface Props {
   totalCount: number;
 }
 
-export const Settings: React.FC<Props> = ({ shared, mine, setMine, excludedCount, totalCount }) => {
+export const Settings: React.FC<Props> = ({ mine, setMine, excludedCount, totalCount }) => {
   const [input, setInput] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -35,16 +34,6 @@ export const Settings: React.FC<Props> = ({ shared, mine, setMine, excludedCount
     setMine(left);
   };
 
-  const copyForShared = async () => {
-    const text = JSON.stringify({ keywords: tidy([...shared, ...mine]) }, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-      setMsg('복사했습니다. 담당자에게 전달하면 공용 목록에 넣어 줍니다.');
-    } catch {
-      setMsg('복사가 막혀 있습니다. 아래 목록을 손으로 옮겨 적어 주세요.');
-    }
-  };
-
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
@@ -64,7 +53,7 @@ export const Settings: React.FC<Props> = ({ shared, mine, setMine, excludedCount
       </div>
 
       <section className="space-y-3">
-        <SectionTitle count={mine.length} desc="이 브라우저에만 저장됩니다">내 목록</SectionTitle>
+        <SectionTitle count={mine.length} desc="이 브라우저에만 저장됩니다">키워드</SectionTitle>
         <div className="flex gap-2">
           <label className="flex-1">
             <span className="sr-only">제외할 키워드</span>
@@ -113,41 +102,9 @@ export const Settings: React.FC<Props> = ({ shared, mine, setMine, excludedCount
           이 목록은 이 브라우저에만 남습니다 — 컴퓨터를 껐다 켜도 그대로지만, 다른 PC나 다른 브라우저,
           시크릿 모드에는 넘어가지 않습니다. 인터넷 사용기록에서 사이트 데이터를 지우면 함께 지워집니다.
         </p>
+        {msg && <p className="text-sm font-bold text-red-600" role="alert">{msg}</p>}
       </section>
 
-      <section className="space-y-3">
-        <SectionTitle count={shared.length} desc="모두에게 같이 적용됩니다">공용 목록</SectionTitle>
-        {shared.length === 0 ? (
-          <p className="text-sm text-slate-500">공용으로 빼는 키워드가 아직 없습니다.</p>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {shared.map((k) => (
-              <li
-                key={k}
-                className="px-3 py-1.5 rounded-md border border-slate-200 bg-slate-50 text-sm font-bold text-slate-600"
-              >
-                {k}
-              </li>
-            ))}
-          </ul>
-        )}
-        <LimitNote>
-          공용 목록은 <strong className="font-bold">화면에서 고칠 수 없습니다.</strong> 이 사이트는 서버 없이
-          파일만 올려둔 구조라, 한 사람이 저장한 값이 다른 사람에게 넘어갈 자리가 없습니다.
-          공용으로 빼고 싶은 키워드가 있으면 담당자에게 말씀하시면 저장소의{' '}
-          <code className="bg-white border border-amber-200 rounded px-1 py-0.5 text-xs">
-            public/data/exclude_keywords.json
-          </code>{' '}
-          에 넣고 다시 배포합니다.
-        </LimitNote>
-        <GhostBtn onClick={copyForShared}>
-          <span className="inline-flex items-center gap-1.5">
-            <Copy className="w-4 h-4" aria-hidden="true" />
-            공용으로 보낼 목록 복사
-          </span>
-        </GhostBtn>
-        {msg && <p className="text-sm font-bold text-slate-700" role="status">{msg}</p>}
-      </section>
     </div>
   );
 };
