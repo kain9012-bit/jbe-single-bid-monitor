@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "//": "자료(public/data)만 바뀐 커밋에서는 다시 짓지 않는다. 화면은 자료를 굽지 않고 실행 중에 가져가므로 다시 지을 이유가 없다. 종료코드 0이면 버셀이 빌드를 건너뛴다.",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)public/data'"
+  "//1": "자료(public/data)만 바뀐 커밋에서는 다시 짓지 않는다. 화면은 자료를 굽지 않고 실행 중에 가져가므로 다시 지을 이유가 없다. 종료코드 0이면 버셀이 빌드를 건너뛴다.",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)public/data'",
+  "//2": "저장소에는 연도별 계약 자료(37MB)가 안전망으로 들어 있지만, 화면은 그걸 Pages에서 가져간다. VITE_DATA_BASE 가 잡혀 있을 때만 결과물에서 덜어내 배포를 가볍게 한다 — 안 잡혀 있으면 화면이 제 자리(./data)를 봐야 하므로 그대로 둔다.",
+  "buildCommand": "vite build && [ -z \"$VITE_DATA_BASE\" ] || rm -rf dist/data"
 }
