@@ -1,14 +1,14 @@
 # 하루 한 번 **새로 올라온 계약만** 받아 화면을 다시 지어 GitHub Pages 에 올린다.
 #
-# 자료를 저장소에 커밋하지 않는다 — 올해 파일이 5~10MB인데 매일 커밋하면 한 해에 2GB가 쌓인다.
-# 그런데 커밋을 안 하면 러너가 매일 빈손으로 시작해서 전수 수집을 하게 된다.
-# 그래서 어제 결과를 Actions 캐시로 물려준다. 캐시는 깃 이력에 남지 않으므로 저장소는 안 커진다.
+# 자료(연도별 5~10MB)는 저장소에 커밋하지 않는다 — 매일 커밋하면 한 해에 2GB가 쌓인다.
+# 대신 어제 결과를 Actions 캐시로 물려준다. 캐시는 깃 이력에 남지 않으므로 저장소가 안 커진다.
 #
 #   캐시 있음 → update.py 가 목록 앞쪽만 훑어 새 건만 받는다 (보통 2요청, 10초)
 #   캐시 없음 → update.py 가 알아서 그 해를 전수로 받는다 (50요청, 3분)
 #   따라잡기 실패 → update.py 가 사이트 표기 건수와 어긋난 걸 보고 스스로 전수 수집한다
 #
-# 어느 경우든 결과는 사이트와 맞는다.
+# 다만 **아무것도 커밋하지 않으면 저장소가 60일 뒤 예약 실행을 자동으로 끈다**(깃허브 정책).
+# 그래서 매일 index.json 하나(500바이트)만 커밋한다. 이력도 안 커지고, 날짜별 건수 기록도 남는다.
 name: 수집 및 배포
 
 on:
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # index.json 을 되돌려 커밋하려면 쓰기가 필요하다
   pages: write
   id-token: write
 
@@ -31,6 +31,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 실행이 밀려 줄을 서면 체크아웃이 낡을 수 있다. 최신 main 으로 맞춰 두고 시작한다.
+      - name: 최신 main 으로 맞추기
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
 
       - uses: actions/setup-python@v5
         with:
@@ -55,7 +61,32 @@ jobs:
           if [ "$M" = "11" ] || [ "$M" = "12" ]; then YEARS="$YEARS $((Y+1))"; fi
           if [ "$M" = "01" ] || [ "$M" = "02" ]; then YEARS="$YEARS $((Y-1))"; fi
           echo "볼 연도: $YEARS"
-          python scripts/update.py $YEARS
+          # 전수 수집으로 되돌아가도 5분이면 끝난다. 그보다 오래 걸리면 뭔가 잘못된 것이다.
+          timeout 1800 python scripts/update.py $YEARS
+
+      # 저장소를 살아 있게 두는 심장박동. 60일 무활동이면 깃허브가 예약 실행을 꺼버린다.
+      # 큰 자료는 그대로 두고 index.json(500바이트)만 올린다.
+      - name: 수집 기록 남기기
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/data/index.json
+          if git diff --cached --quiet; then
+            echo "바뀐 게 없다. 커밋하지 않는다."
+            exit 0
+          fi
+          git commit -m "수집 기록 $(TZ=Asia/Seoul date +%F)"
+          # 도는 사이 원격에 다른 커밋이 오면 그 위로 다시 얹어 재시도한다.
+          # --autostash 가 꼭 필요하다 — 캐시로 받은 contracts_*.json 이 손대지 않은 채
+          # 작업 트리에 남아 있어서, 없으면 rebase 가 "unstaged changes" 로 거부한다.
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "push 거절됨(${i}회) — 원격 변경분 위로 rebase 후 재시도"
+            git fetch origin main
+            git rebase --autostash -X theirs origin/main || { git rebase --abort; exit 1; }
+          done
+          echo "3회 재시도 후에도 push 실패"
+          exit 1
 
       - uses: actions/setup-node@v4
         with:
@@ -70,6 +101,8 @@ jobs:
           # 지금은 비워 둬서 잠그지 않는다 — 넣고 다시 배포하면 그때부터 잠긴다.
           VITE_GATE_HASH: ${{ secrets.GATE_HASH }}
         run: npm run build
+
+      - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
