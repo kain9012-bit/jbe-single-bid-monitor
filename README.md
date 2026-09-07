@@ -81,19 +81,13 @@ python scripts/update.py             # 이후 갱신은 이것만 (올해)
 
 1. 깃허브에 저장소를 만든다(`jbe-single-bid-monitor`, Public).
 2. `Settings > Pages > Build and deployment > Source` 를 **GitHub Actions** 로 바꾼다.
-3. `Settings > Secrets and variables > Actions > New repository secret` 에
-   이름 `GATE_HASH`, 값은 암호의 SHA-256 16진값을 넣는다. 만드는 법:
+3. 첫 배포는 `Actions > 수집 및 배포 > Run workflow` 로 손수 돌린다.
 
-   ```bash
-   python -c "import hashlib,getpass;print(hashlib.sha256(getpass.getpass('암호: ').encode()).hexdigest())"
-   ```
-
-   비워 두면 판정 탭이 잠기지 않는다.
-4. 첫 배포는 `Actions > 수집 및 배포 > Run workflow` 로 손수 돌린다.
+**지금은 암호 없이 연다.** 아무 설정도 안 하면 다섯 탭이 모두 열린 상태로 나간다.
 
 **그 다음부터**
 
-`.github/workflows/deploy.yml` 이 **매일 05:00(KST)** 에 올해치를 전량 다시 받아
+`.github/workflows/update.yml` 이 **매일 05:00(KST)** 에 올해치를 전량 다시 받아
 화면을 짓고 Pages 에 올린다. 받은 자료는 **저장소에 커밋하지 않는다** — 올해 파일이
 5~10MB라 매일 커밋하면 한 해에 2GB가 쌓인다. 배포본에만 넣는다.
 지난 연도 파일은 거의 안 바뀌므로 저장소에 한 번 넣어 두고 그대로 쓴다.
@@ -102,9 +96,25 @@ python scripts/update.py             # 이후 갱신은 이것만 (올해)
 > 정시성이 필요하면 `Run workflow` 를 손으로 누르거나 자체 호스팅 러너로 옮긴다.
 > 참고로 `jbe.go.kr` 은 데이터센터 IP를 막지 않는다 — 해외 클라우드에서 340회 넘게 받아 확인했다.
 
-## 잠금은 자물쇠가 아니라 가림막이다
+## 나중에 판정 탭을 잠그려면
 
-`반복 수의계약`·`분할 의심` 탭은 암호를 넣어야 열린다. 다만 **정적 페이지라 암호 확인이
+해당 부서에서 요청이 오면 **저장소 설정만 바꾸면 된다. 코드는 손대지 않는다.**
+
+1. `Settings > Secrets and variables > Actions > New repository secret` 에
+   이름 `GATE_HASH`, 값은 암호의 SHA-256 16진값을 넣는다.
+
+   ```bash
+   python -c "import hashlib,getpass;print(hashlib.sha256(getpass.getpass('암호: ').encode()).hexdigest())"
+   ```
+
+2. `Actions > 수집 및 배포 > Run workflow` 로 다시 배포한다.
+
+그러면 `반복 수의계약`·`분할 의심` 탭에 자물쇠가 붙고 암호를 넣어야 열린다.
+되돌리려면 그 비밀값을 지우고 다시 배포하면 된다. `현황`·`기관·업체 조회`·`최근 계약`은 늘 열려 있다.
+
+### 다만 자물쇠가 아니라 가림막이다
+
+**정적 페이지라 암호 확인이
 브라우저 안에서 일어나고, 원자료 `data/*.json` 은 주소만 알면 누구나 받을 수 있다.**
 막으려는 것은 '위반처럼 보이는 목록'이 링크로 흘러다니는 일이지 자료 유출이 아니다.
 
