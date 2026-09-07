@@ -1,0 +1,28 @@
+{
+ "years": [
+  {
+   "year": 2026,
+   "collected": 49393,
+   "site_total": 49393,
+   "collected_at": "2026-09-07T11:20:56+09:00"
+  },
+  {
+   "year": 2025,
+   "collected": 92991,
+   "site_total": 92991,
+   "collected_at": "2026-09-07T11:30:24+09:00"
+  },
+  {
+   "year": 2024,
+   "collected": 96652,
+   "site_total": 96652,
+   "collected_at": "2026-09-07T11:44:17+09:00"
+  },
+  {
+   "year": 2023,
+   "collected": 97168,
+   "site_total": 97168,
+   "collected_at": "2026-09-07T11:57:22+09:00"
+  }
+ ]
+}

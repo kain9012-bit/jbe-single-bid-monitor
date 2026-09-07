@@ -1,0 +1,71 @@
+# 하루 한 번 올해치를 새로 받아 화면을 다시 지어 GitHub Pages 에 올린다.
+#
+# 받은 자료를 저장소에 **커밋하지 않는다.** 올해 파일이 5~10MB인데 매일 커밋하면
+# 한 해에 2GB가 쌓인다. 대신 배포본(dist)에만 넣는다. 지난 연도 파일은 거의 안 바뀌므로
+# 저장소에 한 번 넣어 두고 그대로 쓴다.
+name: 수집 및 배포
+
+on:
+  schedule:
+    # 20:00 UTC = 05:00 KST. 깃허브 예약 실행은 몇 시간씩 밀리는 일이 있어 일찍 걸어 둔다.
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 올해치 전량 다시 받기
+        run: |
+          Y=$(TZ=Asia/Seoul date +%Y)
+          M=$(TZ=Asia/Seoul date +%m)
+          YEARS="$Y"
+          # 회계연도와 계약연도가 어긋난다. 12월에는 다음 회계연도 건이 이미 올라오고,
+          # 연초에는 지난 회계연도 마감분이 늦게 붙는다. 그 시기에만 이웃 연도도 받는다.
+          if [ "$M" = "11" ] || [ "$M" = "12" ]; then YEARS="$YEARS $((Y+1))"; fi
+          if [ "$M" = "01" ] || [ "$M" = "02" ]; then YEARS="$YEARS $((Y-1))"; fi
+          echo "받을 연도: $YEARS"
+          python scripts/collect.py $YEARS
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: 화면 짓기
+        env:
+          # 판정 탭을 가리는 암호의 SHA-256 값. 저장소 Settings > Secrets 에 GATE_HASH 로 넣는다.
+          # 비워 두면 잠그지 않는다.
+          VITE_GATE_HASH: ${{ secrets.GATE_HASH }}
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
