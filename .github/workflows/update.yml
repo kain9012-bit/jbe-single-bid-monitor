@@ -103,6 +103,19 @@ jobs:
           VITE_GATE_HASH: ${{ secrets.GATE_HASH }}
         run: npm run build
 
+      # 버셀 — VERCEL_TOKEN 비밀값이 있을 때만 돈다. 없으면 이 단계는 통째로 건너뛰고 Pages 로 나간다.
+      # 수집·빌드는 위에서 이미 끝났으므로 버셀은 만들어진 dist 를 받아 서비스만 한다
+      # (버셀이 다시 빌드하지 않는다 — 그러면 파이썬 수집이 빠져 낡은 자료로 나간다).
+      - name: 버셀로 배포
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx --yes vercel@latest deploy dist \
+            --prod --yes --archive=tgz \
+            --token="${{ secrets.VERCEL_TOKEN }}"
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

@@ -125,6 +125,27 @@ python scripts/update.py             # 이후 갱신은 이것만 (올해)
 > 정시성이 필요하면 `Run workflow` 를 손으로 누르거나 자체 호스팅 러너로 옮긴다.
 > 참고로 `jbe.go.kr` 은 데이터센터 IP를 막지 않는다 — 해외 클라우드에서 340회 넘게 받아 확인했다.
 
+## 버셀로도 내보내기 — 보여주기만 맡긴다
+
+수집과 빌드는 **그대로 GitHub Actions 가 한다.** 버셀은 만들어진 `dist` 를 받아 서비스만 한다.
+버셀이 직접 빌드하게 두면 파이썬 수집 단계가 빠져 낡은 자료로 나가므로, 버셀 쪽 빌드는 꺼야 한다.
+
+저장소 비밀값 `VERCEL_TOKEN` 이 있을 때만 그 단계가 돈다. 없으면 통째로 건너뛰고 Pages 로만 나간다.
+
+**처음 한 번**
+
+1. 버셀에서 새 프로젝트를 만들고 이 저장소를 가져온다(Import).
+2. `Settings > Build and Deployment` 에서 **Framework Preset 을 `Other`**, Build Command 를 비운다.
+3. `Settings > Git` 에서 **Ignored Build Step** 을 `exit 0` 으로 둔다 —
+   push 마다 버셀이 스스로 빌드하는 걸 막는다. 배포는 Actions 가 한다.
+4. `Settings > General` 에서 **Project ID**, 팀 `Settings > General` 에서 **Team ID** 를 복사한다.
+5. 버셀 `Account Settings > Tokens` 에서 토큰을 만든다.
+6. 깃허브 저장소 `Settings > Secrets and variables > Actions` 에 셋을 넣는다:
+   `VERCEL_TOKEN`, `VERCEL_ORG_ID`(=Team ID), `VERCEL_PROJECT_ID`.
+
+> 버셀 Hobby(무료)는 공정사용 규정상 **비상업·개인 용도 전용**이다. 부서 업무 도구로 쓰는 건
+> 회색지대이니 필요하면 Pro 를 보거나 Pages 를 그대로 쓰는 편이 낫다.
+
 ## 암호 — 자물쇠가 아니라 가림막이다
 
 **화면 전체가 암호로 가려져 있다.** 기본 암호의 SHA-256 해시가 `src/components/Gate.tsx` 에 박혀 있다.
