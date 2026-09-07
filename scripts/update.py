@@ -4,7 +4,13 @@
 
 전수 수집(collect.py)은 연도당 50~100번 요청이라 매일 돌릴 일이 아니다.
 목록은 최신순이므로, 앞쪽부터 훑다가 이미 갖고 있는 건이 연달아 나오면 멈춘다.
-보통 한두 번 요청으로 끝난다.
+보통 한두 번 요청으로 끝난다 — 이미 받은 건은 다시 받지 않는다.
+
+스스로 고친다:
+  · 가진 자료가 아예 없으면 그 해를 전수로 받는다.
+  · 다 받은 뒤 사이트 표기 건수와 DRIFT_TOLERANCE 넘게 어긋나면(오래 안 돌렸거나,
+    목록 뒤쪽에 뒤늦게 끼어든 건이 있거나, 원문이 삭제됐을 때) 그 해를 전수로 다시 받는다.
+그래서 매일 돌리든 한 달 만에 돌리든 결과가 사이트와 맞는다.
 
 사용법:
     python3 update.py            # 올해
@@ -24,6 +30,9 @@ STOP_AFTER_KNOWN = 300
 # 갱신은 목록 앞쪽만 보므로 한 번에 200건씩이면 충분하다.
 UNIT = 200
 MAX_PAGES = 25
+# 사이트 표기 건수와 이만큼 넘게 어긋나면 그 해를 전수로 다시 받는다.
+# 수집 도중에도 새 건이 올라오므로 한두 건 차이는 정상이다.
+DRIFT_TOLERANCE = 3
 
 
 def load(year):
@@ -53,7 +62,8 @@ def unpack(d):
 def update_year(year):
     data, path = load(year)
     if data is None:
-        print(f"[{year}] 아직 전수 수집을 안 했다. 먼저 collect.py {year} 를 돌려라.", flush=True)
+        print(f"[{year}] 가진 자료가 없다. 전수 수집으로 시작한다.", flush=True)
+        collect.collect_year(year)
         return
     have = {r["seq"]: r for r in unpack(data)}
     before = len(have)
@@ -90,8 +100,18 @@ def update_year(year):
         print(f"    {r['date']}  {r['amount']:>12,}원  {r['inst']}  {r['name'][:40]}  [{r['partner']}]", flush=True)
     if len(added) > 20:
         print(f"    … 외 {len(added) - 20:,}건", flush=True)
-    if len(rows) != total:
-        print(f"    ※ 사이트 표기 {total:,}건과 {len(rows) - total:+,}건 차이. 어긋남이 커지면 collect.py 로 전수 수집을 다시 해라.", flush=True)
+    gap = len(rows) - total
+    if gap == 0:
+        return
+
+    # 앞쪽만 훑는 방식이라 놓치는 경우가 있다 — 오래 안 돌렸거나, 목록 뒤쪽에 뒤늦게
+    # 끼어든 건이 있거나, 원문이 삭제됐을 때다. 어긋남이 크면 말없이 두지 말고 그 해를 다시 받는다.
+    # 수집하는 동안에도 새 건이 올라오므로 한두 건 차이는 정상으로 본다.
+    if abs(gap) > DRIFT_TOLERANCE:
+        print(f"    ※ 사이트 표기 {total:,}건과 {gap:+,}건 차이. 앞쪽만 봐서는 못 맞춘다 — 전수 수집으로 다시 맞춘다.", flush=True)
+        collect.collect_year(year)
+    else:
+        print(f"    ※ 사이트 표기 {total:,}건과 {gap:+,}건 차이(허용 범위).", flush=True)
 
 
 def main():
